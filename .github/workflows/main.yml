@@ -29,22 +29,6 @@ jobs:
         mkdir -p extracted_ipa
         unzip app.ipa -d extracted_ipa/
 
-    - name: Download and Extract FluffyQuack REtool
-      run: |
-        echo "Downloading compiled REtool..."
-        curl -L -o REtool.rar "http://www.fluffyquack.com/tools/REtool.rar"
-        
-        echo "Extracting RAR package..."
-        mkdir -p Utils
-        7z x REtool.rar -oUtils -y
-        
-        if [ -f "Utils/retool.exe" ]; then
-            echo "Success: retool.exe is ready."
-        else
-            echo "Failed to locate retool.exe after extraction."
-            exit 1
-        fi
-
 - name: Download and Extract FluffyQuack REtool
       run: |
         echo "Downloading compiled REtool..."
@@ -60,6 +44,23 @@ jobs:
             echo "Success: retool.exe is ready."
         else
             echo "Failed to locate retool.exe after extraction."
+            exit 1
+        fi
+
+    - name: Find Pak File and Unpack via Wine
+      run: |
+        # Search recursively for re_chunk_000.pak inside the extracted IPA
+        PAK_PATH=$(find extracted_ipa/ -name "re_chunk_000.pak" -print -quit)
+        
+        if [ -n "$PAK_PATH" ]; then
+            echo "Found target file at: $PAK_PATH"
+            mkdir -p Extracted_Output
+            
+            echo "Launching extraction via FluffyQuack REtool using Wine... This will take some time."
+            # Running the Windows binary using Wine on Linux
+            wine Utils/retool.exe -re4 -extract "$PAK_PATH" Extracted_Output
+        else
+            echo "CRITICAL ERROR: re_chunk_000.pak was not found inside the Extracted IPA!"
             exit 1
         fi
 
