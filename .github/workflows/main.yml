@@ -96,3 +96,76 @@ jobs:
         name: Extracted-RE4-Assets
         path: Extracted_Output/
         retention-days: 3
+
+
+
+   name: RE4 Pak Auto Extractor ubuntu
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  extract-and-unpack:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Wine and Dependencies
+      run: |
+        sudo dpkg --add-architecture i386
+        sudo apt-get update
+        sudo apt-get install -y wine wine32 wine64 unrar p7zip-full
+
+    - name: Download IPA file
+      run: |
+        curl -L -o app.ipa "https://github.com/Doann7457/tai-ipa/releases/download/jp.co.capcom.RE4US-6462360082-863325402/jp.co.capcom.RE4US-1.0.2-6462360082-863325402.ipa"
+
+    - name: Extract IPA
+      run: |
+        mkdir -p extracted_ipa
+        unzip app.ipa -d extracted_ipa/
+
+    - name: Download and Extract FluffyQuack REtool
+      run: |
+        echo "Downloading compiled REtool..."
+        curl -L -o REtool.rar "http://www.fluffyquack.com/tools/REtool.rar"
+        
+        echo "Extracting RAR package..."
+        mkdir -p Utils
+        7z x REtool.rar -oUtils -y
+        
+        if [ -f "Utils/retool.exe" ]; then
+            echo "Success: retool.exe is ready."
+        else
+            echo "Failed to locate retool.exe after extraction."
+            exit 1
+        fi
+
+    - name: Find Pak File and Unpack via Wine
+      run: |
+        # Search recursively for re_chunk_000.pak inside the extracted IPA
+        PAK_PATH=$(find extracted_ipa/ -name "re_chunk_000.pak" -print -quit)
+        
+        if [ -n "$PAK_PATH" ]; then
+            echo "Found target file at: $PAK_PATH"
+            mkdir -p Extracted_Output
+            
+            echo "Launching extraction via FluffyQuack REtool using Wine... This will take some time."
+            # Running the Windows binary using Wine on Linux
+            wine Utils/retool.exe -re4 -extract "$PAK_PATH" Extracted_Output
+        else
+            echo "CRITICAL ERROR: re_chunk_000.pak was not found inside the Extracted IPA!"
+            exit 1
+        fi
+
+    - name: Package and Save Extracted Assets
+      uses: actions/upload-artifact@v4
+      with:
+        name: Extracted-RE4-Assets
+        path: Extracted_Output/
+        retention-days: 3
