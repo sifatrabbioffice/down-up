@@ -1,37 +1,77 @@
-
-name: Download, Extract, and Upload IPA
+name: RE4 Pak Auto Extractor Pipeline
 
 on:
-  push:       # <--- Add this (Runs automatically every time you save/change code)
-  workflow_dispatch: # Keeps the manual button option
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
-  process-file:
-    runs-on: ubuntu-latest
-    
-    # Crucial step: Explicitly grant the script permission to write to your repository
-    permissions:
-      contents: write
+  unpack_process:
+    runs-on: windows-latest
 
     steps:
-    - name: Checkout repository
+    - name: 1. Pull Code From Repository
       uses: actions/checkout@v4
 
-    - name: Download IPA file
+    - name: 2. Download IPA file
+      shell: powershell
       run: |
-        curl -L -o app.ipa "https://github.com/Doann7457/tai-ipa/releases/download/jp.co.capcom.RE4US-6462360082-863325402/jp.co.capcom.RE4US-1.0.2-6462360082-863325402.ipa"
+        Write-Host "Downloading RE4 IPA..."
+        Invoke-WebRequest -Uri "https://github.com/Doann7457/tai-ipa/releases/download/jp.co.capcom.RE4US-6462360082-863325402/jp.co.capcom.RE4US-1.0.2-6462360082-863325402.ipa" -OutFile "app.ipa"
 
-    - name: Extract IPA
+    - name: 3. Extract IPA Container
+      shell: powershell
       run: |
-        mkdir -p extracted_ipa
-        unzip app.ipa -d extracted_ipa/
-        rm app.ipa
+        Write-Host "Extracting IPA contents..."
+        # Windows environments have 7-Zip pre-installed globally
+        7z x app.ipa -o"extracted_ipa" -y
 
-    - name: Commit and Push changes
+    - name: 4. Download FluffyQuack REtool
+      shell: powershell
       run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        Write-Host "Downloading compiled REtool..."
+        Invoke-WebRequest -Uri "http://www.fluffyquack.com/tools/REtool.rar" -OutFile "REtool.rar"
         
-        git add extracted_ipa/
-        git commit -m "Add extracted IPA contents via GitHub Action" || echo "No changes to commit"
-        git push
+        Write-Host "Extracting REtool archive..."
+        7z x REtool.rar -o"Utils" -y
+        
+        if (Test-Path ".\Utils\retool.exe") {
+            Write-Host "Success: retool.exe is compiled and ready."
+        } else {
+            Write-Error "Failed to locate retool.exe after extraction."
+            exit 1
+        }
+
+    - name: 5. Locate Pak File, Copy and Run Extraction
+      shell: powershell
+      run: |
+        Write-Host "Searching for re_chunk_000.pak inside the extracted IPA folder..."
+        $PakFile = Get-ChildItem -Path ".\extracted_ipa" -Recurse -Filter "re_chunk_000.pak" | Select-Object -First 1
+        
+        if ($PakFile) {
+            Write-Host "Found target file at: $($PakFile.FullName)"
+            
+            # Create a localized working folder for the raw pak file
+            New-Item -ItemType Directory -Force -Path ".\Workspace"
+            
+            Write-Host "Copying PAK file to local container workspace..."
+            Copy-Item -Path $PakFile.FullName -Destination ".\Workspace\re_chunk_000.pak" -Force
+            
+            # Setup output location
+            New-Item -ItemType Directory -Force -Path ".\Extracted_Output"
+            
+            Write-Host "Launching extraction via FluffyQuack REtool..."
+            # Execute REtool directly targeting the copied workspace file
+            & ".\Utils\retool.exe" -re4 -extract ".\Workspace\re_chunk_000.pak" ".\Extracted_Output"
+        } else {
+            Write-Error "CRITICAL ERROR: re_chunk_000.pak was not found inside the extracted_ipa folder!"
+            exit 1
+        }
+
+    - name: 6. Package and Save Extracted Assets
+      uses: actions/upload-artifact@v4
+      with:
+        name: Extracted-RE4-Assets
+        path: .\Extracted_Output\
+        retention-days: 3
