@@ -37,13 +37,19 @@ jobs:
         echo "Extracting RAR package..."
         mkdir -p Utils
         
-        # Using unrar instead of 7z to prevent the segmentation fault
-        unrar x -o+ REtool.rar Utils/
+        # Extract everything into a temporary folder first
+        mkdir -p temp_extracted
+        unrar x -o+ REtool.rar temp_extracted/
         
-        if [ -f "Utils/retool.exe" ]; then
-            echo "Success: retool.exe is ready."
+        # Locate retool.exe wherever it landed and move it directly to Utils/
+        FOUND_RETOOL=$(find temp_extracted/ -name "retool.exe" -print -quit)
+        
+        if [ -n "$FOUND_RETOOL" ]; then
+            mv "$FOUND_RETOOL" Utils/retool.exe
+            echo "Success: retool.exe is ready in Utils/."
+            rm -rf temp_extracted # Clean up the temp folder
         else
-            echo "Failed to locate retool.exe after extraction."
+            echo "Failed to locate retool.exe anywhere inside the archive."
             exit 1
         fi
 
