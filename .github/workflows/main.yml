@@ -1,4 +1,4 @@
-name: RE4 Pak Auto Extractor Pipeline
+name: RE4 Pak Auto Extractor ubuntu
 
 on:
   push:
@@ -7,71 +7,64 @@ on:
   workflow_dispatch:
 
 jobs:
-  unpack_process:
-    runs-on: windows-latest
+  extract-and-unpack:
+    runs-on: ubuntu-latest
 
     steps:
-    - name: 1. Pull Code From Repository
+    - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: 2. Download IPA file
-      shell: powershell
+    - name: Install Wine and Dependencies
       run: |
-        Write-Host "Downloading RE4 IPA..."
-        Invoke-WebRequest -Uri "https://github.com/Doann7457/tai-ipa/releases/download/jp.co.capcom.RE4US-6462360082-863325402/jp.co.capcom.RE4US-1.0.2-6462360082-863325402.ipa" -OutFile "app.ipa"
+        sudo dpkg --add-architecture i386
+        sudo apt-get update
+        sudo apt-get install -y wine wine32 wine64 unrar p7zip-full
 
-    - name: 3. Extract IPA Container
-      shell: powershell
+    - name: Download IPA file
       run: |
-        Write-Host "Extracting IPA contents..."
-        # Windows environments have 7-Zip pre-installed globally
-        7z x app.ipa -o"extracted_ipa" -y
+        curl -L -o app.ipa "https://github.com/Doann7457/tai-ipa/releases/download/jp.co.capcom.RE4US-6462360082-863325402/jp.co.capcom.RE4US-1.0.2-6462360082-863325402.ipa"
 
-    - name: 4. Download FluffyQuack REtool
-      shell: powershell
+    - name: Extract IPA
       run: |
-        Write-Host "Downloading compiled REtool..."
-        Invoke-WebRequest -Uri "http://www.fluffyquack.com/tools/REtool.rar" -OutFile "REtool.rar"
+        mkdir -p extracted_ipa
+        unzip app.ipa -d extracted_ipa/
+
+    - name: Download and Extract FluffyQuack REtool
+      run: |
+        echo "Downloading compiled REtool..."
+        curl -L -o REtool.rar "http://www.fluffyquack.com/tools/REtool.rar"
         
-        Write-Host "Extracting REtool archive..."
-        7z x REtool.rar -o"Utils" -y
+        echo "Extracting RAR package..."
+        mkdir -p Utils
+        7z x REtool.rar -oUtils -y
         
-        if (Test-Path ".\Utils\retool.exe") {
-            Write-Host "Success: retool.exe is compiled and ready."
-        } else {
-            Write-Error "Failed to locate retool.exe after extraction."
+        if [ -f "Utils/retool.exe" ]; then
+            echo "Success: retool.exe is ready."
+        else
+            echo "Failed to locate retool.exe after extraction."
             exit 1
-        }
+        fi
 
-    - name: 5. Locate Pak File, Copy and Run Extraction
-      shell: powershell
+    - name: Find Pak File and Unpack via Wine
       run: |
-        Write-Host "Searching for re_chunk_000.pak inside the extracted IPA folder..."
-        $PakFile = Get-ChildItem -Path ".\extracted_ipa" -Recurse -Filter "re_chunk_000.pak" | Select-Object -First 1
+        # Search recursively for re_chunk_000.pak inside the extracted IPA
+        PAK_PATH=$(find extracted_ipa/ -name "re_chunk_000.pak" -print -quit)
         
-        if ($PakFile) {
-            Write-Host "Found target file at: $($PakFile.FullName)"
+        if [ -n "$PAK_PATH" ]; then
+            echo "Found target file at: $PAK_PATH"
+            mkdir -p Extracted_Output
             
-            # Create a localized working folder for the raw pak file
-            New-Item -ItemType Directory -Force -Path ".\Workspace"
-            
-            Write-Host "Copying PAK file to local container workspace..."
-            Copy-Item -Path $PakFile.FullName -Destination ".\Workspace\re_chunk_000.pak" -Force
-            
-            # Setup output location
-            New-Item -ItemType Directory -Force -Path ".\Extracted_Output"
-            
-            Write-Host "Launching extraction via FluffyQuack REtool..."
-            # Execute REtool directly targeting the copied workspace file
-            & ".\Utils\retool.exe" -re4 -extract ".\Workspace\re_chunk_000.pak" ".\Extracted_Output"
-        } else {
-            Write-Error "CRITICAL ERROR: re_chunk_000.pak was not found inside the extracted_ipa folder!"
+            echo "Launching extraction via FluffyQuack REtool using Wine... This will take some time."
+            # Running the Windows binary using Wine on Linux
+            wine Utils/retool.exe -re4 -extract "$PAK_PATH" Extracted_Output
+        else
+            echo "CRITICAL ERROR: re_chunk_000.pak was not found inside the Extracted IPA!"
             exit 1
-        }
+        fi
 
-    - name: 6. Package and Save Extracted Assets
+    - name: Package and Save Extracted Assets
       uses: actions/upload-artifact@v4
       with:
         name: Extracted-RE4-Assets
-        path: .\Extracted_Output\
+        path: Extracted_Output/
         retention-days: 3
