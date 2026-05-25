@@ -6,26 +6,25 @@ on:
 jobs:
   process-file:
     runs-on: ubuntu-latest
+    
+    # Crucial step: Explicitly grant the script permission to write to your repository
+    permissions:
+      contents: write
 
     steps:
-    # Step 1: Check out your repository so the action can save files to it
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # Step 2: Download the .ipa file from the URL
     - name: Download IPA file
       run: |
         curl -L -o app.ipa "https://github.com/Doann7457/tai-ipa/releases/download/jp.co.capcom.RE4US-6462360082-863325402/jp.co.capcom.RE4US-1.0.2-6462360082-863325402.ipa"
 
-    # Step 3: Extract the contents (IPA files are standard zip archives)
     - name: Extract IPA
       run: |
         mkdir -p extracted_ipa
         unzip app.ipa -d extracted_ipa/
-        # Clean up the original zip/ipa file to save space
         rm app.ipa
 
-    # Step 4: Commit and push the extracted files back to your GitHub repository
     - name: Commit and Push changes
       run: |
         git config --global user.name "github-actions[bot]"
