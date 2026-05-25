@@ -29,7 +29,7 @@ jobs:
         mkdir -p extracted_ipa
         unzip app.ipa -d extracted_ipa/
 
-- name: Download and Extract FluffyQuack REtool
+    - name: Download and Extract FluffyQuack REtool
       run: |
         echo "Downloading compiled REtool..."
         curl -L -o REtool.rar "http://www.fluffyquack.com/tools/REtool.rar"
