@@ -41,10 +41,11 @@ jobs:
         mkdir -p temp_extracted
         unrar x -o+ REtool.rar temp_extracted/
         
-        # Locate retool.exe wherever it landed and move it directly to Utils/
-        FOUND_RETOOL=$(find temp_extracted/ -name "retool.exe" -print -quit)
+        # Case-insensitive find (-iname) ensures REtool.exe or retool.exe is found
+        FOUND_RETOOL=$(find temp_extracted/ -iname "retool.exe" -print -quit)
         
         if [ -n "$FOUND_RETOOL" ]; then
+            # Force rename it to all-lowercase 'retool.exe' so the next wine step works perfectly
             mv "$FOUND_RETOOL" Utils/retool.exe
             echo "Success: retool.exe is ready in Utils/."
             rm -rf temp_extracted # Clean up the temp folder
