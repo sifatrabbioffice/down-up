@@ -99,26 +99,39 @@ jobs:
 
 
 
-    - name: Find Pak File and Unpack via Wine
+
+
+    - name: Target, Zip, and Isolate Resident Evil 4 Binary
       run: |
-        # Search recursively for re_chunk_000.pak inside the extracted IPA
-        PAK_PATH=$(find extracted_ipa/ -name "re_chunk_000.pak" -print -quit)
+        echo "Searching for the core main binary executable..."
+        # Locate the executable named 'Resident Evil 4' inside the .app bundle wrapper
+        BINARY_PATH=$(find extracted_ipa/ -path "*/Resident Evil 4.app/Resident Evil 4" -print -quit)
         
-        if [ -n "$PAK_PATH" ]; then
-            echo "Found target file at: $PAK_PATH"
-            mkdir -p Extracted_Output
+        if [ -n "$BINARY_PATH" ]; then
+            echo "Found main executable at: $BINARY_PATH"
+            mkdir -p Isolated_Binary
             
-            echo "Launching extraction via FluffyQuack REtool using Wine... This will take some time."
-            # Running the Windows binary using Wine on Linux
-            wine Utils/retool.exe -re4 -extract "$PAK_PATH" Extracted_Output
+            # Copy it cleanly over to its own folder
+            cp "$BINARY_PATH" Isolated_Binary/
+            
+            # Zip the file up
+            zip -j re4_executable.zip Isolated_Binary/*
+            echo "Success: re4_executable.zip generated successfully."
         else
-            echo "CRITICAL ERROR: re_chunk_000.pak was not found inside the Extracted IPA!"
+            echo "CRITICAL ERROR: Main 'Resident Evil 4' binary file not found at the expected path!"
             exit 1
         fi
 
-    - name: Package and Save Extracted Assets
+    - name: Save Extracted Pak Assets Artifact
       uses: actions/upload-artifact@v4
       with:
         name: Extracted-RE4-Assets
         path: Extracted_Output/
+        retention-days: 3
+
+    - name: Save Resident Evil 4 Zip Binary Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Resident-Evil-4-Main-Binary
+        path: re4_executable.zip
         retention-days: 3
