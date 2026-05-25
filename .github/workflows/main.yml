@@ -64,8 +64,17 @@ jobs:
             mkdir -p Extracted_Output
             
             echo "Launching extraction via FluffyQuack REtool using Wine... This will take some time."
-            # Running the Windows binary using Wine on Linux
-            wine Utils/retool.exe -re4 -extract "$PAK_PATH" Extracted_Output
+            
+            # Use '|| true' to prevent Wine's exit status from crashing the runner
+            wine Utils/retool.exe -re4 -extract "$PAK_PATH" Extracted_Output || true
+            
+            # Manual validation: check if the output folder actually has files in it
+            if [ "$(ls -A Extracted_Output)" ]; then
+                echo "Extraction verified successfully! Continuing..."
+            else
+                echo "CRITICAL ERROR: Extracted_Output is empty. The extraction actually failed."
+                exit 1
+            fi
         else
             echo "CRITICAL ERROR: re_chunk_000.pak was not found inside the Extracted IPA!"
             exit 1
