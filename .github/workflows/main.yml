@@ -93,7 +93,7 @@ jobs:
     - name: Package and Save Extracted Assets
       uses: actions/upload-artifact@v4
       with:
-        name: Extracted-RE4-Assets
+        name: Extracted-RE4-Assets re_chunk_000 pak
         path: Extracted_Output/
         retention-days: 3
 
@@ -122,12 +122,7 @@ jobs:
             exit 1
         fi
 
-    - name: Save Extracted Pak Assets Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: Extracted-RE4-Assets
-        path: Extracted_Output/
-        retention-days: 3
+
 
     - name: Save Resident Evil 4 Zip Binary Artifact
       uses: actions/upload-artifact@v4
