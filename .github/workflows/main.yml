@@ -56,23 +56,33 @@ jobs:
 
     - name: Find Pak File and Unpack via Wine
       run: |
-        # Search recursively for re_chunk_000.pak inside the extracted IPA
-        PAK_PATH=$(find extracted_ipa/ -name "re_chunk_000.pak" -print -quit)
+        # Get absolute paths so they work regardless of which directory we are in
+        WORKSPACE_DIR=$(pwd)
+        PAK_PATH=$(find "$WORKSPACE_DIR/extracted_ipa" -name "re_chunk_000.pak" -print -quit)
+        RETOOL_PATH="$WORKSPACE_DIR/Utils/retool.exe"
         
         if [ -n "$PAK_PATH" ]; then
             echo "Found target file at: $PAK_PATH"
-            mkdir -p Extracted_Output
+            
+            # Create and enter the target extraction directory
+            mkdir -p "$WORKSPACE_DIR/Extracted_Output"
+            cd "$WORKSPACE_DIR/Extracted_Output"
             
             echo "Launching extraction via FluffyQuack REtool using Wine... This will take some time."
             
-            # Use '|| true' to prevent Wine's exit status from crashing the runner
-            wine Utils/retool.exe -re4 -extract "$PAK_PATH" Extracted_Output || true
+            # Run Wine inside Extracted_Output using absolute paths to force the files here
+            wine "$RETOOL_PATH" -re4 -extract "$PAK_PATH" . || true
             
-            # Manual validation: check if the output folder actually has files in it
+            # Return to workspace root to verify
+            cd "$WORKSPACE_DIR"
+            
+            # Manual validation check
             if [ "$(ls -A Extracted_Output)" ]; then
-                echo "Extraction verified successfully! Continuing..."
+                echo "Extraction verified successfully! Files found in Extracted_Output."
             else
-                echo "CRITICAL ERROR: Extracted_Output is empty. The extraction actually failed."
+                echo "CRITICAL ERROR: Extracted_Output is empty."
+                echo "Let's check where the files actually went. Printing workspace root contents:"
+                ls -la
                 exit 1
             fi
         else
