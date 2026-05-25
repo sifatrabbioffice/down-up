@@ -1,7 +1,9 @@
+
 name: Download, Extract, and Upload IPA
 
 on:
-  workflow_dispatch: # Allows you to run this workflow manually
+  push:       # <--- Add this (Runs automatically every time you save/change code)
+  workflow_dispatch: # Keeps the manual button option
 
 jobs:
   process-file:
